@@ -240,3 +240,29 @@ func (c *Client) UpdateTransactionAccount(id int, institutionID int, startingBal
 
 	return &transactionAccount, nil
 }
+
+func (c *Client) GetInstitutionAccounts(institutionID int) ([]Account, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/institutions/%d/accounts", institutionID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("X-Developer-Key", c.token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var accounts []Account
+	err = json.NewDecoder(resp.Body).Decode(&accounts)
+	if err != nil {
+		return nil, err
+	}
+
+	return accounts, nil
+}
