@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 type CreateTransaction struct {
@@ -42,15 +43,15 @@ type Transaction struct {
 	UploadSource         string             `json:"upload_source"`
 	Category             Category           `json:"category"`
 	ClosingBalance       float64            `json:"closing_balance"`
-	ChequeNumber         *string            `json:"cheque_number"`
-	Memo                 *string            `json:"memo"`
+	ChequeNumber         string             `json:"cheque_number"`
+	Memo                 string             `json:"memo"`
 	Amount               float64            `json:"amount"`
 	AmountInBaseCurrency float64            `json:"amount_in_base_currency"`
 	Type                 string             `json:"type"`
 	IsTransfer           bool               `json:"is_transfer"`
 	NeedsReview          bool               `json:"needs_review"`
 	Status               string             `json:"status"`
-	Note                 *string            `json:"note"`
+	Note                 string             `json:"note"`
 	Labels               []string           `json:"labels"`
 	TransactionAccount   TransactionAccount `json:"transaction_account"`
 	CreatedAt            string             `json:"created_at"`
@@ -183,4 +184,82 @@ func (c *Client) ListTransactions(accountID int, startDate, endDate, updatedSinc
 	}
 
 	return transactions, nil
+}
+
+func (c *Client) UpdateTransaction(transactionID int64, transaction *CreateTransaction) error {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transactions/%d", transactionID)
+
+	payload, err := json.Marshal(transaction)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("content-type", "application/json")
+	req.Header.Add("X-Developer-Key", c.token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("not allowed: status code 403")
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("not found: status code 404")
+	}
+	if resp.StatusCode == http.StatusUnprocessableEntity {
+		return fmt.Errorf("validation error: status code 422")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (c *Client) SearchTransactionsByMemo(accountID int, referenceNo string, transactionDate time.Time) ([]*Transaction, error) {
+	startDate := transactionDate.Add(-1 * 24 * time.Hour).Format("2006-01-02")
+	endDate := transactionDate.Add(1 * 24 * time.Hour).Format("2006-01-02")
+
+	transactions, err := c.SearchTransactions(accountID, startDate, endDate, "")
+	if err != nil {
+		return nil, fmt.Errorf("error searching for transactions: %v", err)
+	}
+
+	var matchingTransactions []*Transaction
+	for _, tx := range transactions {
+		if tx.Memo == referenceNo {
+			matchingTransactions = append(matchingTransactions, tx)
+		}
+	}
+
+	return matchingTransactions, nil
+}
+
+func (c *Client) SearchTransactionsByChequeNumber(accountID int, transactionDate time.Time, chequeNum string) ([]*Transaction, error) {
+	startDate := transactionDate.Add(-1 * 24 * time.Hour).Format("2006-01-02")
+	endDate := transactionDate.Add(1 * 24 * time.Hour).Format("2006-01-02")
+
+	transactions, err := c.SearchTransactions(accountID, startDate, endDate, "")
+	if err != nil {
+		return nil, fmt.Errorf("error searching for transactions: %v", err)
+	}
+
+	var matchingTransactions []*Transaction
+	for _, tx := range transactions {
+		if tx.ChequeNumber == chequeNum {
+			matchingTransactions = append(matchingTransactions, tx)
+		}
+	}
+
+	return matchingTransactions, nil
 }
