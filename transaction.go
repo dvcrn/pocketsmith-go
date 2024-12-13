@@ -239,7 +239,7 @@ func (c *Client) UpdateTransaction(transactionID int64, transaction *CreateTrans
 // SearchTransactionsByMemo searches for transactions by the memo field within a given date range.
 // It takes an accountID, a referenceNo string to search for in the memo field, and a transactionDate time.Time.
 // It returns a slice of matching Transaction pointers, or an error if the search fails.
-func (c *Client) SearchTransactionsByMemo(accountID int, referenceNo string, transactionDate time.Time) ([]*Transaction, error) {
+func (c *Client) SearchTransactionsByMemo(accountID int, transactionDate time.Time, search string) ([]*Transaction, error) {
 	startDate := transactionDate.Add(-1 * 24 * time.Hour).Format("2006-01-02")
 	endDate := transactionDate.Add(1 * 24 * time.Hour).Format("2006-01-02")
 
@@ -250,7 +250,7 @@ func (c *Client) SearchTransactionsByMemo(accountID int, referenceNo string, tra
 
 	var matchingTransactions []*Transaction
 	for _, tx := range transactions {
-		if tx.Memo == referenceNo {
+		if tx.Memo == search {
 			matchingTransactions = append(matchingTransactions, tx)
 		}
 	}
@@ -262,7 +262,7 @@ func (c *Client) SearchTransactionsByMemo(accountID int, referenceNo string, tra
 // where the memo contains the specified search string.
 // It takes an accountID, a search string to look for in the memo field, and a transactionDate time.Time.
 // It returns a slice of matching Transaction pointers, or an error if the search fails.
-func (c *Client) SearchTransactionsByMemoContains(accountID int, search string, transactionDate time.Time) ([]*Transaction, error) {
+func (c *Client) SearchTransactionsByMemoContains(accountID int, transactionDate time.Time, search string) ([]*Transaction, error) {
 	startDate := transactionDate.Add(-1 * 24 * time.Hour).Format("2006-01-02")
 	endDate := transactionDate.Add(1 * 24 * time.Hour).Format("2006-01-02")
 
