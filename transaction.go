@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -58,6 +59,10 @@ type Transaction struct {
 	UpdatedAt            string             `json:"updated_at"`
 }
 
+// AddTransaction creates a new transaction for the specified account.
+// It takes an accountID and a CreateTransaction struct, and returns the created transaction and any error.
+// The CreateTransaction struct contains the details of the new transaction to be created.
+// The function makes a POST request to the PocketSmith API to create the new transaction.
 func (c *Client) AddTransaction(accountID int, transaction *CreateTransaction) (*CreateTransaction, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d/transactions", accountID)
 
@@ -93,6 +98,7 @@ func (c *Client) AddTransaction(accountID int, transaction *CreateTransaction) (
 	return &createdTransaction, nil
 }
 
+// SearchTransactions retrieves a list of transactions for the specified account, with optional filtering by start date, end date, and search query.
 func (c *Client) SearchTransactions(accountID int, startDate, endDate, search string) ([]*Transaction, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d/transactions", accountID)
 
@@ -132,6 +138,7 @@ func (c *Client) SearchTransactions(accountID int, startDate, endDate, search st
 	return transactions, nil
 }
 
+// ListTransactions retrieves a list of transactions for the specified account, with optional filtering by date range, update time, categorization, transaction type, review status, and search query. The results are paginated, with the page number specified as a parameter.
 func (c *Client) ListTransactions(accountID int, startDate, endDate, updatedSince string, uncategorised int, transactionType string, needsReview int, search string, page int) ([]*Transaction, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d/transactions", accountID)
 
@@ -186,6 +193,9 @@ func (c *Client) ListTransactions(accountID int, startDate, endDate, updatedSinc
 	return transactions, nil
 }
 
+// UpdateTransaction updates an existing transaction with the provided transaction data.
+// It takes the ID of the transaction to update and a pointer to a CreateTransaction struct
+// containing the updated transaction data. It returns an error if the update fails.
 func (c *Client) UpdateTransaction(transactionID int64, transaction *CreateTransaction) error {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transactions/%d", transactionID)
 
@@ -226,6 +236,9 @@ func (c *Client) UpdateTransaction(transactionID int64, transaction *CreateTrans
 	return nil
 }
 
+// SearchTransactionsByMemo searches for transactions by the memo field within a given date range.
+// It takes an accountID, a referenceNo string to search for in the memo field, and a transactionDate time.Time.
+// It returns a slice of matching Transaction pointers, or an error if the search fails.
 func (c *Client) SearchTransactionsByMemo(accountID int, referenceNo string, transactionDate time.Time) ([]*Transaction, error) {
 	startDate := transactionDate.Add(-1 * 24 * time.Hour).Format("2006-01-02")
 	endDate := transactionDate.Add(1 * 24 * time.Hour).Format("2006-01-02")
@@ -245,6 +258,32 @@ func (c *Client) SearchTransactionsByMemo(accountID int, referenceNo string, tra
 	return matchingTransactions, nil
 }
 
+// SearchTransactionsByMemoContains searches for transactions by the memo field within a given date range,
+// where the memo contains the specified search string.
+// It takes an accountID, a search string to look for in the memo field, and a transactionDate time.Time.
+// It returns a slice of matching Transaction pointers, or an error if the search fails.
+func (c *Client) SearchTransactionsByMemoContains(accountID int, search string, transactionDate time.Time) ([]*Transaction, error) {
+	startDate := transactionDate.Add(-1 * 24 * time.Hour).Format("2006-01-02")
+	endDate := transactionDate.Add(1 * 24 * time.Hour).Format("2006-01-02")
+
+	transactions, err := c.SearchTransactions(accountID, startDate, endDate, "")
+	if err != nil {
+		return nil, fmt.Errorf("error searching for transactions: %v", err)
+	}
+
+	var matchingTransactions []*Transaction
+	for _, tx := range transactions {
+		if strings.Contains(tx.Memo, search) {
+			matchingTransactions = append(matchingTransactions, tx)
+		}
+	}
+
+	return matchingTransactions, nil
+}
+
+// SearchTransactionsByChequeNumber searches for transactions by the cheque number within a given date range.
+// It takes an accountID, a transactionDate time.Time, and a chequeNum string to search for.
+// It returns a slice of matching Transaction pointers, or an error if the search fails.
 func (c *Client) SearchTransactionsByChequeNumber(accountID int, transactionDate time.Time, chequeNum string) ([]*Transaction, error) {
 	startDate := transactionDate.Add(-1 * 24 * time.Hour).Format("2006-01-02")
 	endDate := transactionDate.Add(1 * 24 * time.Hour).Format("2006-01-02")
