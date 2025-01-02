@@ -86,7 +86,7 @@ type Account struct {
 	SafeBalanceInBaseCurrency    float64              `json:"safe_balance_in_base_currency"`
 }
 
-func (c *Client) ListAccounts(userID int) ([]Account, error) {
+func (c *Client) ListAccounts(userID int) ([]*Account, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/users/%d/accounts", userID)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -103,7 +103,7 @@ func (c *Client) ListAccounts(userID int) ([]Account, error) {
 	}
 	defer resp.Body.Close()
 
-	var accounts []Account
+	var accounts []*Account
 	err = json.NewDecoder(resp.Body).Decode(&accounts)
 	if err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ func (c *Client) ListAccounts(userID int) ([]Account, error) {
 	return accounts, nil
 }
 
-func (c *Client) ListTransactionAccounts(userID int) ([]TransactionAccount, error) {
+func (c *Client) ListTransactionAccounts(userID int) ([]*TransactionAccount, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/users/%d/transaction_accounts", userID)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -129,7 +129,7 @@ func (c *Client) ListTransactionAccounts(userID int) ([]TransactionAccount, erro
 	}
 	defer resp.Body.Close()
 
-	var transactionAccounts []TransactionAccount
+	var transactionAccounts []*TransactionAccount
 	err = json.NewDecoder(resp.Body).Decode(&transactionAccounts)
 	if err != nil {
 		return nil, err
@@ -191,7 +191,7 @@ func (c *Client) FindAccountByName(userID int, name string) (*Account, error) {
 
 	for _, account := range accounts {
 		if account.Title == name {
-			return &account, nil
+			return account, nil
 		}
 	}
 
@@ -265,4 +265,43 @@ func (c *Client) GetInstitutionAccounts(institutionID int) ([]Account, error) {
 	}
 
 	return accounts, nil
+}
+
+func (c *Client) UpdateAccountsDisplayOrder(userID int, accounts []*Account) ([]*Account, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/users/%d/accounts", userID)
+
+	payload := struct {
+		Accounts []*Account `json:"accounts"`
+	}{
+		Accounts: accounts,
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("content-type", "application/json")
+	req.Header.Add("X-Developer-Key", c.token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var updatedAccounts []*Account
+	err = json.NewDecoder(resp.Body).Decode(&updatedAccounts)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedAccounts, nil
 }
