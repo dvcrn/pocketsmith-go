@@ -305,3 +305,48 @@ func (c *Client) UpdateAccountsDisplayOrder(userID int, accounts []*Account) ([]
 
 	return updatedAccounts, nil
 }
+
+func (c *Client) UpdateAccount(accountID int, title string, currencyCode string, accountType AccountType, isNetWorth bool) (*Account, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/accounts/%d", accountID)
+
+	payload := struct {
+		Title        string      `json:"title"`
+		CurrencyCode string      `json:"currency_code"`
+		Type         AccountType `json:"type"`
+		IsNetWorth   bool        `json:"is_net_worth"`
+	}{
+		Title:        title,
+		CurrencyCode: currencyCode,
+		Type:         accountType,
+		IsNetWorth:   isNetWorth,
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("content-type", "application/json")
+	req.Header.Add("X-Developer-Key", c.token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var account Account
+	err = json.NewDecoder(resp.Body).Decode(&account)
+	if err != nil {
+		return nil, err
+	}
+
+	return &account, nil
+}
