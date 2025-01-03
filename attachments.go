@@ -103,8 +103,8 @@ type AttachToTransaction struct {
 	AttachmentID int64 `json:"attachment_id"`
 }
 
-// AttachToTransaction attaches an existing attachment to a transaction
-func (c *Client) AttachToTransaction(transactionID int64, attachmentID int64) error {
+// AssignToTransaction attaches an existing attachment to a transaction
+func (c *Client) AssignToTransaction(transactionID int64, attachmentID int64) error {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transactions/%d/attachments", transactionID)
 
 	payload := AttachToTransaction{
@@ -123,7 +123,8 @@ func (c *Client) AttachToTransaction(transactionID int64, attachmentID int64) er
 
 	req.Header.Add("content-type", "application/json")
 
-	return c.doAndDecode(req, nil)
+	var attachment Attachment
+	return c.doAndDecode(req, &attachment)
 }
 
 // UnassignAttachment removes an attachment from a transaction
@@ -135,7 +136,8 @@ func (c *Client) UnassignAttachment(transactionID int64, attachmentID int64) err
 		return err
 	}
 
-	return c.doAndDecode(req, nil)
+	var attachment Attachment
+	return c.doAndDecode(req, &attachment)
 }
 
 // GetAttachment retrieves a single attachment by its ID
