@@ -94,17 +94,9 @@ func (c *Client) ListAccounts(userID int) ([]*Account, error) {
 	}
 
 	req.Header.Add("accept", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	var accounts []*Account
-	err = json.NewDecoder(resp.Body).Decode(&accounts)
+	err = c.doAndDecode(req, &accounts)
 	if err != nil {
 		return nil, err
 	}
@@ -120,17 +112,9 @@ func (c *Client) ListTransactionAccounts(userID int) ([]*TransactionAccount, err
 	}
 
 	req.Header.Add("accept", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	var transactionAccounts []*TransactionAccount
-	err = json.NewDecoder(resp.Body).Decode(&transactionAccounts)
+	err = c.doAndDecode(req, &transactionAccounts)
 	if err != nil {
 		return nil, err
 	}
@@ -165,17 +149,9 @@ func (c *Client) CreateAccount(userID int, institutionID int, title string, curr
 
 	req.Header.Add("accept", "application/json")
 	req.Header.Add("content-type", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	var account Account
-	err = json.NewDecoder(resp.Body).Decode(&account)
+	err = c.doAndDecode(req, &account)
 	if err != nil {
 		return nil, err
 	}
@@ -223,17 +199,9 @@ func (c *Client) UpdateTransactionAccount(id int, institutionID int, startingBal
 
 	req.Header.Add("accept", "application/json")
 	req.Header.Add("content-type", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	var transactionAccount TransactionAccount
-	err = json.NewDecoder(resp.Body).Decode(&transactionAccount)
+	err = c.doAndDecode(req, &transactionAccount)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +209,7 @@ func (c *Client) UpdateTransactionAccount(id int, institutionID int, startingBal
 	return &transactionAccount, nil
 }
 
-func (c *Client) GetInstitutionAccounts(institutionID int) ([]Account, error) {
+func (c *Client) GetInstitutionAccounts(institutionID int) ([]*Account, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/institutions/%d/accounts", institutionID)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -249,17 +217,9 @@ func (c *Client) GetInstitutionAccounts(institutionID int) ([]Account, error) {
 	}
 
 	req.Header.Add("accept", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var accounts []Account
-	err = json.NewDecoder(resp.Body).Decode(&accounts)
+	var accounts []*Account
+	err = c.doAndDecode(req, &accounts)
 	if err != nil {
 		return nil, err
 	}
@@ -288,17 +248,9 @@ func (c *Client) UpdateAccountsDisplayOrder(userID int, accounts []*Account) ([]
 
 	req.Header.Add("accept", "application/json")
 	req.Header.Add("content-type", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	var updatedAccounts []*Account
-	err = json.NewDecoder(resp.Body).Decode(&updatedAccounts)
+	err = c.doAndDecode(req, &updatedAccounts)
 	if err != nil {
 		return nil, err
 	}
@@ -333,17 +285,9 @@ func (c *Client) UpdateAccount(accountID int, title string, currencyCode string,
 
 	req.Header.Add("accept", "application/json")
 	req.Header.Add("content-type", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
 
 	var account Account
-	err = json.NewDecoder(resp.Body).Decode(&account)
+	err = c.doAndDecode(req, &account)
 	if err != nil {
 		return nil, err
 	}

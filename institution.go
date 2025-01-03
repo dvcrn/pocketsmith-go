@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 )
 
@@ -39,27 +38,9 @@ func (c *Client) CreateInstitution(userID int, title string, currencyCode string
 
 	req.Header.Add("accept", "application/json")
 	req.Header.Add("content-type", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// Read response body for debugging
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("Response body: %s\n", string(bodyBytes))
-
-	// Create new reader with the body bytes for subsequent decoding
-	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	var institution Institution
-	err = json.NewDecoder(resp.Body).Decode(&institution)
+	err = c.doAndDecode(req, &institution)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +48,7 @@ func (c *Client) CreateInstitution(userID int, title string, currencyCode string
 	return &institution, nil
 }
 
-func (c *Client) ListInstitutions(userID int) ([]Institution, error) {
+func (c *Client) ListInstitutions(userID int) ([]*Institution, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/users/%d/institutions", userID)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -76,17 +57,9 @@ func (c *Client) ListInstitutions(userID int) ([]Institution, error) {
 	}
 
 	req.Header.Add("accept", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var institutions []Institution
-	err = json.NewDecoder(resp.Body).Decode(&institutions)
+	var institutions []*Institution
+	err = c.doAndDecode(req, &institutions)
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +75,30 @@ func (c *Client) FindInstitutionByName(userID int, name string) (*Institution, e
 
 	for _, institution := range institutions {
 		if institution.Title == name {
-			return &institution, nil
+			return institution, nil
 		}
 	}
 
 	return nil, ErrNotFound
+}
+
+func (c *Client) DeleteInstitution(institutionID int, mergeIntoInstitutionID int) error {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/institutions/%d", institutionID)
+	if mergeIntoInstitutionID > 0 {
+		url = fmt.Sprintf("%s?merge_into_institution_id=%d", url, mergeIntoInstitutionID)
+	}
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	err = c.doAndDecode(req, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
