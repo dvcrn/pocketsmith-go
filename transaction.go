@@ -287,6 +287,8 @@ func (c *Client) UpdateTransaction(transactionID int64, transaction *CreateTrans
 		return nil, err
 	}
 
+	req.Header.Add("content-type", "application/json")
+
 	var tx *Transaction
 	if err := c.doAndDecode(req, &tx); err != nil {
 		return nil, err
