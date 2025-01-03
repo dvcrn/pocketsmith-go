@@ -36,6 +36,14 @@ type Category struct {
 	UpdatedAt       string     `json:"updated_at"`
 }
 
+type ApiError struct {
+	Err string `json:"error"`
+}
+
+func (a ApiError) Error() string {
+	return fmt.Sprintf("Pocketsmith API Error: %s", a.Err)
+}
+
 type Transaction struct {
 	ID                   int64              `json:"id"`
 	Payee                string             `json:"payee"`
@@ -76,26 +84,52 @@ func (c *Client) AddTransaction(accountID int, transaction *CreateTransaction) (
 		return nil, err
 	}
 
+	var createdTransaction CreateTransaction
+	if err := c.doAndDecode(req, &createdTransaction); err != nil {
+		return nil, err
+	}
+
+	return &createdTransaction, nil
+}
+
+func (c *Client) doAndDecode(req *http.Request, responseType any) error {
 	req.Header.Add("accept", "application/json")
-	req.Header.Add("content-type", "application/json")
 	req.Header.Add("X-Developer-Key", c.token)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 
-	// {"id":1140680818,"payee":"チャージ","original_payee":"チャージ","date":"2024-12-04","upload_source":"api","category":null,"closing_balance":2346.0,"cheque_number":null,"memo":null,"amount":5000.0,"amount_in_base_currency":33.21,"type":"credit","is_transfer":true,"needs_review":false,"status":"posted","note":"チャージ","labels":[],"transaction_account":{"id":3466150,"account_id":3370081,"name":"ANA Pay","latest_feed_name":null,"number":null,"type":"credits","offline":true,"is_net_worth":false,"currency_code":"jpy","current_balance":0.0,"current_balance_in_base_currency":0.0,"current_balance_exchange_rate":null,"current_balance_date":"2024-12-05","current_balance_source":"closing_balance_as_today","data_feeds_balance_type":"balance","safe_balance":null,"safe_balance_in_base_currency":null,"has_safe_balance_adjustment":false,"starting_balance":0.0,"starting_balance_date":"2024-12-05","institution":{"id":1266583,"title":"ANA Pay","currency_code":"jpy","colour":"#4C5BA5","logo_url":null,"favicon_data_uri":null,"created_at":"2024-12-05T05:00:24Z","updated_at":"2024-12-05T05:00:24Z"},"data_feeds_account_id":null,"data_feeds_connection_id":null,"created_at":"2024-12-05T05:00:24Z","updated_at":"2024-12-05T05:00:24Z"},"created_at":"2024-12-05T05:17:26Z","updated_at":"2024-12-05T05:17:26Z"}
+	bodyBuf := new(bytes.Buffer)
+	bodyBuf.ReadFrom(resp.Body)
 
-	var createdTransaction CreateTransaction
-	err = json.NewDecoder(resp.Body).Decode(&createdTransaction)
+	reader := bytes.NewReader(bodyBuf.Bytes())
+
+	//b := bytes.Buffer{}
+	//b.ReadFrom(reader)
+	//fmt.Println("Body: ", string(b.Bytes()))
+	//reader.Seek(0, 0)
+
+	err = json.NewDecoder(reader).Decode(responseType)
 	if err != nil {
-		return nil, err
+		// reset reading position of the buffer
+		reader.Seek(0, 0)
+
+		// try to decode into ApiError instead
+		var apiError *ApiError
+		if err := json.NewDecoder(reader).Decode(&apiError); err != nil {
+			return err
+		}
+
+		if apiError != nil {
+			return apiError
+		}
 	}
 
-	return &createdTransaction, nil
+	return nil
 }
 
 // SearchTransactions retrieves a list of transactions for the specified account, with optional filtering by start date, end date, and search query.
@@ -119,19 +153,8 @@ func (c *Client) SearchTransactions(accountID int, startDate, endDate, search st
 	}
 	req.URL.RawQuery = q.Encode()
 
-	req.Header.Add("accept", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
 	var transactions []*Transaction
-	err = json.NewDecoder(resp.Body).Decode(&transactions)
-	if err != nil {
+	if err := c.doAndDecode(req, &transactions); err != nil {
 		return nil, err
 	}
 
@@ -139,7 +162,73 @@ func (c *Client) SearchTransactions(accountID int, startDate, endDate, search st
 }
 
 // ListTransactions retrieves a list of transactions for the specified account, with optional filtering by date range, update time, categorization, transaction type, review status, and search query. The results are paginated, with the page number specified as a parameter.
-func (c *Client) ListTransactions(accountID int, startDate, endDate, updatedSince string, uncategorised int, transactionType string, needsReview int, search string, page int) ([]*Transaction, error) {
+type ListTransactionsOption func(*listTransactionsOptions)
+
+type listTransactionsOptions struct {
+	startDate       string
+	endDate         string
+	updatedSince    string
+	uncategorised   int
+	transactionType string
+	needsReview     int
+	search          string
+	page            int
+}
+
+func WithStartDate(date string) ListTransactionsOption {
+	return func(o *listTransactionsOptions) {
+		o.startDate = date
+	}
+}
+
+func WithEndDate(date string) ListTransactionsOption {
+	return func(o *listTransactionsOptions) {
+		o.endDate = date
+	}
+}
+
+func WithUpdatedSince(date string) ListTransactionsOption {
+	return func(o *listTransactionsOptions) {
+		o.updatedSince = date
+	}
+}
+
+func WithUncategorised(uncategorised int) ListTransactionsOption {
+	return func(o *listTransactionsOptions) {
+		o.uncategorised = uncategorised
+	}
+}
+
+func WithTransactionType(transactionType string) ListTransactionsOption {
+	return func(o *listTransactionsOptions) {
+		o.transactionType = transactionType
+	}
+}
+
+func WithNeedsReview(needsReview int) ListTransactionsOption {
+	return func(o *listTransactionsOptions) {
+		o.needsReview = needsReview
+	}
+}
+
+func WithSearch(search string) ListTransactionsOption {
+	return func(o *listTransactionsOptions) {
+		o.search = search
+	}
+}
+
+func WithPage(page int) ListTransactionsOption {
+	return func(o *listTransactionsOptions) {
+		o.page = page
+	}
+}
+
+func (c *Client) ListTransactions(accountID int, opts ...ListTransactionsOption) ([]*Transaction, error) {
+	options := &listTransactionsOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d/transactions", accountID)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -148,45 +237,34 @@ func (c *Client) ListTransactions(accountID int, startDate, endDate, updatedSinc
 	}
 
 	q := req.URL.Query()
-	if startDate != "" {
-		q.Add("start_date", startDate)
+	if options.startDate != "" {
+		q.Add("start_date", options.startDate)
 	}
-	if endDate != "" {
-		q.Add("end_date", endDate)
+	if options.endDate != "" {
+		q.Add("end_date", options.endDate)
 	}
-	if updatedSince != "" {
-		q.Add("updated_since", updatedSince)
+	if options.updatedSince != "" {
+		q.Add("updated_since", options.updatedSince)
 	}
-	if uncategorised > 0 {
-		q.Add("uncategorised", fmt.Sprintf("%d", uncategorised))
+	if options.uncategorised > 0 {
+		q.Add("uncategorised", fmt.Sprintf("%d", options.uncategorised))
 	}
-	if transactionType != "" {
-		q.Add("type", transactionType)
+	if options.transactionType != "" {
+		q.Add("type", options.transactionType)
 	}
-	if needsReview > 0 {
-		q.Add("needs_review", fmt.Sprintf("%d", needsReview))
+	if options.needsReview > 0 {
+		q.Add("needs_review", fmt.Sprintf("%d", options.needsReview))
 	}
-	if search != "" {
-		q.Add("search", search)
+	if options.search != "" {
+		q.Add("search", options.search)
 	}
-	if page > 0 {
-		q.Add("page", fmt.Sprintf("%d", page))
+	if options.page > 0 {
+		q.Add("page", fmt.Sprintf("%d", options.page))
 	}
 	req.URL.RawQuery = q.Encode()
 
-	req.Header.Add("accept", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
 	var transactions []*Transaction
-	err = json.NewDecoder(resp.Body).Decode(&transactions)
-	if err != nil {
+	if err := c.doAndDecode(req, &transactions); err != nil {
 		return nil, err
 	}
 
@@ -196,44 +274,25 @@ func (c *Client) ListTransactions(accountID int, startDate, endDate, updatedSinc
 // UpdateTransaction updates an existing transaction with the provided transaction data.
 // It takes the ID of the transaction to update and a pointer to a CreateTransaction struct
 // containing the updated transaction data. It returns an error if the update fails.
-func (c *Client) UpdateTransaction(transactionID int64, transaction *CreateTransaction) error {
+func (c *Client) UpdateTransaction(transactionID int64, transaction *CreateTransaction) (*Transaction, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transactions/%d", transactionID)
 
 	payload, err := json.Marshal(transaction)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(payload))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	req.Header.Add("accept", "application/json")
-	req.Header.Add("content-type", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusForbidden {
-		return fmt.Errorf("not allowed: status code 403")
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("not found: status code 404")
-	}
-	if resp.StatusCode == http.StatusUnprocessableEntity {
-		return fmt.Errorf("validation error: status code 422")
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	var tx *Transaction
+	if err := c.doAndDecode(req, &tx); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return tx, nil
 }
 
 // SearchTransactionsByMemo searches for transactions by the memo field within a given date range.
