@@ -92,46 +92,6 @@ func (c *Client) AddTransaction(accountID int, transaction *CreateTransaction) (
 	return &createdTransaction, nil
 }
 
-func (c *Client) doAndDecode(req *http.Request, responseType any) error {
-	req.Header.Add("accept", "application/json")
-	req.Header.Add("X-Developer-Key", c.token)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	bodyBuf := new(bytes.Buffer)
-	bodyBuf.ReadFrom(resp.Body)
-
-	reader := bytes.NewReader(bodyBuf.Bytes())
-
-	//b := bytes.Buffer{}
-	//b.ReadFrom(reader)
-	//fmt.Println("Body: ", string(b.Bytes()))
-	//reader.Seek(0, 0)
-
-	err = json.NewDecoder(reader).Decode(responseType)
-	if err != nil {
-		// reset reading position of the buffer
-		reader.Seek(0, 0)
-
-		// try to decode into ApiError instead
-		var apiError *ApiError
-		if err := json.NewDecoder(reader).Decode(&apiError); err != nil {
-			return err
-		}
-
-		if apiError != nil {
-			return apiError
-		}
-	}
-
-	return nil
-}
-
 // SearchTransactions retrieves a list of transactions for the specified account, with optional filtering by start date, end date, and search query.
 func (c *Client) SearchTransactions(accountID int, startDate, endDate, search string) ([]*Transaction, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d/transactions", accountID)
