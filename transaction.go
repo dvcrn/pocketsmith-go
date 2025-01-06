@@ -9,31 +9,42 @@ import (
 	"time"
 )
 
-type CreateTransaction struct {
-	Payee        string   `json:"payee"`
-	Amount       float64  `json:"amount"`
-	Date         string   `json:"date"`
-	IsTransfer   bool     `json:"is_transfer"`
-	Labels       []string `json:"labels,omitempty"`
-	CategoryID   int      `json:"category_id,omitempty"`
-	Note         string   `json:"note,omitempty"`
-	Memo         string   `json:"memo,omitempty"`
-	ChequeNumber string   `json:"cheque_number,omitempty"`
-	NeedsReview  bool     `json:"needs_review"`
+type CategoryID int
+
+const CategoryIDNone CategoryID = 0
+
+func (c CategoryID) MarshalJSON() ([]byte, error) {
+	if c == CategoryIDNone {
+		return []byte(`""`), nil
+	}
+	return json.Marshal(int(c))
+}
+
+type Transaction struct {
+	Payee        string     `json:"payee"`
+	Amount       float64    `json:"amount"`
+	Date         string     `json:"date"`
+	IsTransfer   bool       `json:"is_transfer"`
+	Labels       []string   `json:"labels,omitempty"`
+	CategoryID   CategoryID `json:"category_id,omitempty"`
+	Note         string     `json:"note,omitempty"`
+	Memo         string     `json:"memo,omitempty"`
+	ChequeNumber string     `json:"cheque_number,omitempty"`
+	NeedsReview  bool       `json:"needs_review"`
 }
 
 type Category struct {
-	ID              int        `json:"id"`
-	Title           string     `json:"title"`
-	Colour          *string    `json:"colour"`
-	IsTransfer      bool       `json:"is_transfer"`
-	IsBill          bool       `json:"is_bill"`
-	RefundBehaviour *string    `json:"refund_behaviour"`
-	Children        []Category `json:"children"`
-	ParentID        *int       `json:"parent_id"`
-	RollUp          bool       `json:"roll_up"`
-	CreatedAt       string     `json:"created_at"`
-	UpdatedAt       string     `json:"updated_at"`
+	ID              int         `json:"id"`
+	Title           string      `json:"title"`
+	Colour          string      `json:"colour"`
+	IsTransfer      bool        `json:"is_transfer"`
+	IsBill          bool        `json:"is_bill"`
+	RefundBehaviour string      `json:"refund_behaviour"`
+	Children        []*Category `json:"children"`
+	ParentID        int         `json:"parent_id"`
+	RollUp          bool        `json:"roll_up"`
+	CreatedAt       string      `json:"created_at"`
+	UpdatedAt       string      `json:"updated_at"`
 }
 
 type ApiError struct {
@@ -44,34 +55,34 @@ func (a ApiError) Error() string {
 	return fmt.Sprintf("Pocketsmith API Error: %s", a.Err)
 }
 
-type Transaction struct {
-	ID                   int64              `json:"id"`
-	Payee                string             `json:"payee"`
-	OriginalPayee        string             `json:"original_payee"`
-	Date                 string             `json:"date"`
-	UploadSource         string             `json:"upload_source"`
-	Category             Category           `json:"category"`
-	ClosingBalance       float64            `json:"closing_balance"`
-	ChequeNumber         string             `json:"cheque_number"`
-	Memo                 string             `json:"memo"`
-	Amount               float64            `json:"amount"`
-	AmountInBaseCurrency float64            `json:"amount_in_base_currency"`
-	Type                 string             `json:"type"`
-	IsTransfer           bool               `json:"is_transfer"`
-	NeedsReview          bool               `json:"needs_review"`
-	Status               string             `json:"status"`
-	Note                 string             `json:"note"`
-	Labels               []string           `json:"labels"`
-	TransactionAccount   TransactionAccount `json:"transaction_account"`
-	CreatedAt            string             `json:"created_at"`
-	UpdatedAt            string             `json:"updated_at"`
+type DetailedTransaction struct {
+	ID                   int64               `json:"id"`
+	Payee                string              `json:"payee"`
+	OriginalPayee        string              `json:"original_payee"`
+	Date                 string              `json:"date"`
+	UploadSource         string              `json:"upload_source"`
+	Category             *Category           `json:"category"`
+	ClosingBalance       float64             `json:"closing_balance"`
+	ChequeNumber         string              `json:"cheque_number"`
+	Memo                 string              `json:"memo"`
+	Amount               float64             `json:"amount"`
+	AmountInBaseCurrency float64             `json:"amount_in_base_currency"`
+	Type                 string              `json:"type"`
+	IsTransfer           bool                `json:"is_transfer"`
+	NeedsReview          bool                `json:"needs_review"`
+	Status               string              `json:"status"`
+	Note                 string              `json:"note"`
+	Labels               []string            `json:"labels"`
+	TransactionAccount   *TransactionAccount `json:"transaction_account"`
+	CreatedAt            string              `json:"created_at"`
+	UpdatedAt            string              `json:"updated_at"`
 }
 
 // AddTransaction creates a new transaction for the specified account.
 // It takes an accountID and a CreateTransaction struct, and returns the created transaction and any error.
 // The CreateTransaction struct contains the details of the new transaction to be created.
 // The function makes a POST request to the PocketSmith API to create the new transaction.
-func (c *Client) AddTransaction(accountID int, transaction *CreateTransaction) (*CreateTransaction, error) {
+func (c *Client) AddTransaction(accountID int, transaction *Transaction) (*Transaction, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d/transactions", accountID)
 
 	payload, err := json.Marshal(transaction)
@@ -84,7 +95,7 @@ func (c *Client) AddTransaction(accountID int, transaction *CreateTransaction) (
 		return nil, err
 	}
 
-	var createdTransaction CreateTransaction
+	var createdTransaction Transaction
 	if err := c.doAndDecode(req, &createdTransaction); err != nil {
 		return nil, err
 	}
@@ -93,7 +104,7 @@ func (c *Client) AddTransaction(accountID int, transaction *CreateTransaction) (
 }
 
 // SearchTransactions retrieves a list of transactions for the specified account, with optional filtering by start date, end date, and search query.
-func (c *Client) SearchTransactions(accountID int, startDate, endDate, search string) ([]*Transaction, error) {
+func (c *Client) SearchTransactions(accountID int, startDate, endDate, search string) ([]*DetailedTransaction, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d/transactions", accountID)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -113,7 +124,7 @@ func (c *Client) SearchTransactions(accountID int, startDate, endDate, search st
 	}
 	req.URL.RawQuery = q.Encode()
 
-	var transactions []*Transaction
+	var transactions []*DetailedTransaction
 	if err := c.doAndDecode(req, &transactions); err != nil {
 		return nil, err
 	}
@@ -183,7 +194,7 @@ func WithPage(page int) ListTransactionsOption {
 	}
 }
 
-func (c *Client) ListTransactions(accountID int, opts ...ListTransactionsOption) ([]*Transaction, error) {
+func (c *Client) ListTransactions(accountID int, opts ...ListTransactionsOption) ([]*DetailedTransaction, error) {
 	options := &listTransactionsOptions{}
 	for _, opt := range opts {
 		opt(options)
@@ -223,7 +234,7 @@ func (c *Client) ListTransactions(accountID int, opts ...ListTransactionsOption)
 	}
 	req.URL.RawQuery = q.Encode()
 
-	var transactions []*Transaction
+	var transactions []*DetailedTransaction
 	if err := c.doAndDecode(req, &transactions); err != nil {
 		return nil, err
 	}
@@ -232,9 +243,8 @@ func (c *Client) ListTransactions(accountID int, opts ...ListTransactionsOption)
 }
 
 // UpdateTransaction updates an existing transaction with the provided transaction data.
-// It takes the ID of the transaction to update and a pointer to a CreateTransaction struct
-// containing the updated transaction data. It returns an error if the update fails.
-func (c *Client) UpdateTransaction(transactionID int64, transaction *CreateTransaction) (*Transaction, error) {
+// Setting CategoryIDNone will remove the transaction's category.
+func (c *Client) UpdateTransaction(transactionID int64, transaction *Transaction) (*DetailedTransaction, error) {
 	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transactions/%d", transactionID)
 
 	payload, err := json.Marshal(transaction)
@@ -249,7 +259,7 @@ func (c *Client) UpdateTransaction(transactionID int64, transaction *CreateTrans
 
 	req.Header.Add("content-type", "application/json")
 
-	var tx *Transaction
+	var tx *DetailedTransaction
 	if err := c.doAndDecode(req, &tx); err != nil {
 		return nil, err
 	}
@@ -260,7 +270,7 @@ func (c *Client) UpdateTransaction(transactionID int64, transaction *CreateTrans
 // SearchTransactionsByMemo searches for transactions by the memo field within a given date range.
 // It takes an accountID, a referenceNo string to search for in the memo field, and a transactionDate time.Time.
 // It returns a slice of matching Transaction pointers, or an error if the search fails.
-func (c *Client) SearchTransactionsByMemo(accountID int, transactionDate time.Time, search string) ([]*Transaction, error) {
+func (c *Client) SearchTransactionsByMemo(accountID int, transactionDate time.Time, search string) ([]*DetailedTransaction, error) {
 	startDate := transactionDate.Add(-1 * 24 * time.Hour).Format("2006-01-02")
 	endDate := transactionDate.Add(1 * 24 * time.Hour).Format("2006-01-02")
 
@@ -269,7 +279,7 @@ func (c *Client) SearchTransactionsByMemo(accountID int, transactionDate time.Ti
 		return nil, fmt.Errorf("error searching for transactions: %v", err)
 	}
 
-	var matchingTransactions []*Transaction
+	var matchingTransactions []*DetailedTransaction
 	for _, tx := range transactions {
 		if tx.Memo == search {
 			matchingTransactions = append(matchingTransactions, tx)
@@ -283,7 +293,7 @@ func (c *Client) SearchTransactionsByMemo(accountID int, transactionDate time.Ti
 // where the memo contains the specified search string.
 // It takes an accountID, a search string to look for in the memo field, and a transactionDate time.Time.
 // It returns a slice of matching Transaction pointers, or an error if the search fails.
-func (c *Client) SearchTransactionsByMemoContains(accountID int, transactionDate time.Time, search string) ([]*Transaction, error) {
+func (c *Client) SearchTransactionsByMemoContains(accountID int, transactionDate time.Time, search string) ([]*DetailedTransaction, error) {
 	startDate := transactionDate.Add(-1 * 24 * time.Hour).Format("2006-01-02")
 	endDate := transactionDate.Add(1 * 24 * time.Hour).Format("2006-01-02")
 
@@ -292,7 +302,7 @@ func (c *Client) SearchTransactionsByMemoContains(accountID int, transactionDate
 		return nil, fmt.Errorf("error searching for transactions: %v", err)
 	}
 
-	var matchingTransactions []*Transaction
+	var matchingTransactions []*DetailedTransaction
 	for _, tx := range transactions {
 		if strings.Contains(tx.Memo, search) {
 			matchingTransactions = append(matchingTransactions, tx)
@@ -305,7 +315,7 @@ func (c *Client) SearchTransactionsByMemoContains(accountID int, transactionDate
 // SearchTransactionsByChequeNumber searches for transactions by the cheque number within a given date range.
 // It takes an accountID, a transactionDate time.Time, and a chequeNum string to search for.
 // It returns a slice of matching Transaction pointers, or an error if the search fails.
-func (c *Client) SearchTransactionsByChequeNumber(accountID int, transactionDate time.Time, chequeNum string) ([]*Transaction, error) {
+func (c *Client) SearchTransactionsByChequeNumber(accountID int, transactionDate time.Time, chequeNum string) ([]*DetailedTransaction, error) {
 	startDate := transactionDate.Add(-1 * 24 * time.Hour).Format("2006-01-02")
 	endDate := transactionDate.Add(1 * 24 * time.Hour).Format("2006-01-02")
 
@@ -314,7 +324,7 @@ func (c *Client) SearchTransactionsByChequeNumber(accountID int, transactionDate
 		return nil, fmt.Errorf("error searching for transactions: %v", err)
 	}
 
-	var matchingTransactions []*Transaction
+	var matchingTransactions []*DetailedTransaction
 	for _, tx := range transactions {
 		if tx.ChequeNumber == chequeNum {
 			matchingTransactions = append(matchingTransactions, tx)
