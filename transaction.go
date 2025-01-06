@@ -9,17 +9,6 @@ import (
 	"time"
 )
 
-type CategoryID int
-
-const CategoryIDNone CategoryID = -1
-
-func (c CategoryID) MarshalJSON() ([]byte, error) {
-	if c == CategoryIDNone {
-		return []byte(`""`), nil
-	}
-	return json.Marshal(int(c))
-}
-
 type Transaction struct {
 	Payee        string     `json:"payee"`
 	Amount       float64    `json:"amount"`
@@ -31,28 +20,6 @@ type Transaction struct {
 	Memo         string     `json:"memo,omitempty"`
 	ChequeNumber string     `json:"cheque_number,omitempty"`
 	NeedsReview  bool       `json:"needs_review"`
-}
-
-type Category struct {
-	ID              int         `json:"id"`
-	Title           string      `json:"title"`
-	Colour          string      `json:"colour"`
-	IsTransfer      bool        `json:"is_transfer"`
-	IsBill          bool        `json:"is_bill"`
-	RefundBehaviour string      `json:"refund_behaviour"`
-	Children        []*Category `json:"children"`
-	ParentID        int         `json:"parent_id"`
-	RollUp          bool        `json:"roll_up"`
-	CreatedAt       string      `json:"created_at"`
-	UpdatedAt       string      `json:"updated_at"`
-}
-
-type ApiError struct {
-	Err string `json:"error"`
-}
-
-func (a ApiError) Error() string {
-	return fmt.Sprintf("Pocketsmith API Error: %s", a.Err)
 }
 
 type DetailedTransaction struct {

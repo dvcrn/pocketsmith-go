@@ -4,10 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 )
 
 var ErrNotFound = errors.New("not found")
+
+type ApiError struct {
+	Err string `json:"error"`
+}
+
+func (a ApiError) Error() string {
+	return fmt.Sprintf("Pocketsmith API Error: %s", a.Err)
+}
 
 type Client struct {
 	token string
