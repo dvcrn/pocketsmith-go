@@ -33,22 +33,22 @@ func (c *Client) doAndDecode(req *http.Request, responseType any) error {
 
 	reader := bytes.NewReader(bodyBuf.Bytes())
 
-	//b := bytes.Buffer{}
-	//b.ReadFrom(reader)
-	//fmt.Println("Body: ", string(b.Bytes()))
-	//reader.Seek(0, 0)
+	// b := bytes.Buffer{}
+	// b.ReadFrom(reader)
+	// fmt.Println("Body: ", string(b.Bytes()))
+	// reader.Seek(0, 0)
 
-	var apiError *ApiError
+	var apiError ApiError
 	if err := json.NewDecoder(reader).Decode(&apiError); err == nil {
-		if apiError != nil {
+		if apiError.Err != "" {
 			return apiError
 		}
 	}
 
-	if responseType == nil {
-		return nil
+	reader.Seek(0, 0)
+	if responseType != nil {
+		return json.NewDecoder(reader).Decode(responseType)
 	}
 
-	reader.Seek(0, 0)
-	return json.NewDecoder(reader).Decode(responseType)
+	return nil
 }

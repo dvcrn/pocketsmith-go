@@ -11,7 +11,7 @@ import (
 
 type CategoryID int
 
-const CategoryIDNone CategoryID = 0
+const CategoryIDNone CategoryID = -1
 
 func (c CategoryID) MarshalJSON() ([]byte, error) {
 	if c == CategoryIDNone {
