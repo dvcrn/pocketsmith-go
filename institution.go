@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 type Institution struct {
@@ -80,6 +81,22 @@ func (c *Client) FindInstitutionByName(userID int, name string) (*Institution, e
 	}
 
 	return nil, ErrNotFound
+}
+
+func (c *Client) FindInstitutionsByNameContains(userID int, name string) ([]*Institution, error) {
+	institutions, err := c.ListInstitutions(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	found := make([]*Institution, 0)
+	for _, institution := range institutions {
+		if strings.Contains(institution.Title, name) {
+			found = append(found, institution)
+		}
+	}
+
+	return found, nil
 }
 
 func (c *Client) DeleteInstitution(institutionID int, mergeIntoInstitutionID int) error {

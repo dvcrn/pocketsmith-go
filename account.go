@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 type AccountType string
@@ -172,6 +173,22 @@ func (c *Client) FindAccountByName(userID int, name string) (*Account, error) {
 	}
 
 	return nil, ErrNotFound
+}
+
+func (c *Client) FindAccountsByNameContains(userID int, name string) ([]*Account, error) {
+	accs, err := c.ListAccounts(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	found := make([]*Account, 0)
+	for _, acc := range accs {
+		if strings.Contains(acc.Title, name) {
+			found = append(found, acc)
+		}
+	}
+
+	return found, nil
 }
 
 func (c *Client) UpdateTransactionAccount(id int, institutionID int, startingBalance float64, startingBalanceDate string) (*TransactionAccount, error) {
