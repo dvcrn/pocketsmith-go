@@ -28,6 +28,7 @@ func NewClient(token string) *Client {
 
 func (c *Client) doAndDecode(req *http.Request, responseType any) error {
 	req.Header.Add("accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Add("X-Developer-Key", c.token)
 
 	client := &http.Client{}

@@ -49,8 +49,8 @@ type DetailedTransaction struct {
 // It takes an accountID and a CreateTransaction struct, and returns the created transaction and any error.
 // The CreateTransaction struct contains the details of the new transaction to be created.
 // The function makes a POST request to the PocketSmith API to create the new transaction.
-func (c *Client) AddTransaction(accountID int, transaction *Transaction) (*Transaction, error) {
-	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d/transactions", accountID)
+func (c *Client) AddTransaction(transactionAccountID int, transaction *Transaction) (*Transaction, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d/transactions", transactionAccountID)
 
 	payload, err := json.Marshal(transaction)
 	if err != nil {
