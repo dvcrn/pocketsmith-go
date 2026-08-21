@@ -25,6 +25,7 @@ type Category struct {
 	IsTransfer      bool        `json:"is_transfer"`
 	IsBill          bool        `json:"is_bill"`
 	RefundBehaviour string      `json:"refund_behaviour"`
+	RolloverType    string      `json:"rollover_type"`
 	Children        []*Category `json:"children"`
 	ParentID        int         `json:"parent_id"`
 	RollUp          bool        `json:"roll_up"`
@@ -59,4 +60,43 @@ func (c *Client) ListCategoryRules(userID int) ([]*CategoryRule, error) {
 	}
 
 	return rules, nil
+}
+
+// ListCategories retrieves all categories for a given user. Only top-level
+// categories are returned; sub-categories are nested under Children.
+func (c *Client) ListCategories(userID int) ([]*Category, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/users/%d/categories", userID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	var categories []*Category
+	if err := c.doAndDecode(req, &categories); err != nil {
+		return nil, err
+	}
+
+	return categories, nil
+}
+
+// GetCategory retrieves a single category by its ID.
+func (c *Client) GetCategory(categoryID int) (*Category, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/categories/%d", categoryID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	var category Category
+	if err := c.doAndDecode(req, &category); err != nil {
+		return nil, err
+	}
+
+	return &category, nil
 }

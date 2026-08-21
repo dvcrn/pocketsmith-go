@@ -9,11 +9,70 @@ import (
 )
 
 type Institution struct {
-	ID           int    `json:"id"`
-	Title        string `json:"title"`
-	CurrencyCode string `json:"currency_code"`
-	CreatedAt    string `json:"created_at"`
-	UpdatedAt    string `json:"updated_at"`
+	ID             int    `json:"id"`
+	Title          string `json:"title"`
+	CurrencyCode   string `json:"currency_code"`
+	Colour         string `json:"colour"`
+	LogoURL        string `json:"logo_url"`
+	FaviconDataURI string `json:"favicon_data_uri"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
+// GetInstitution retrieves a single institution by its ID.
+func (c *Client) GetInstitution(institutionID int) (*Institution, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/institutions/%d", institutionID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	var institution Institution
+	err = c.doAndDecode(req, &institution)
+	if err != nil {
+		return nil, err
+	}
+
+	return &institution, nil
+}
+
+// UpdateInstitution updates an institution's title and currency code.
+// Only title and currency_code are writable; colour, logo_url and
+// favicon_data_uri are read-only attributes of the institution.
+func (c *Client) UpdateInstitution(institutionID int, title string, currencyCode string) (*Institution, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/institutions/%d", institutionID)
+
+	payload := struct {
+		Title        string `json:"title"`
+		CurrencyCode string `json:"currency_code"`
+	}{
+		Title:        title,
+		CurrencyCode: currencyCode,
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("content-type", "application/json")
+
+	var institution Institution
+	err = c.doAndDecode(req, &institution)
+	if err != nil {
+		return nil, err
+	}
+
+	return &institution, nil
 }
 
 func (c *Client) CreateInstitution(userID int, title string, currencyCode string) (*Institution, error) {

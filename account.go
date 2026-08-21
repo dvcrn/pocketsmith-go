@@ -26,11 +26,13 @@ const (
 
 type Scenario struct {
 	ID                           int     `json:"id"`
+	AccountID                    int     `json:"account_id"`
 	Title                        string  `json:"title"`
 	Description                  string  `json:"description"`
 	InterestRate                 float64 `json:"interest_rate"`
 	InterestRateRepeatID         int     `json:"interest_rate_repeat_id"`
 	Type                         string  `json:"type"`
+	IsNetWorth                   bool    `json:"is_net_worth"`
 	MinimumValue                 float64 `json:"minimum_value"`
 	MaximumValue                 float64 `json:"maximum_value"`
 	AchieveDate                  string  `json:"achieve_date"`
@@ -44,20 +46,33 @@ type Scenario struct {
 	CurrentBalanceExchangeRate   float64 `json:"current_balance_exchange_rate"`
 	SafeBalance                  float64 `json:"safe_balance"`
 	SafeBalanceInBaseCurrency    float64 `json:"safe_balance_in_base_currency"`
+	HasSafeBalanceAdjustment     bool    `json:"has_safe_balance_adjustment"`
 	CreatedAt                    string  `json:"created_at"`
 	UpdatedAt                    string  `json:"updated_at"`
 }
 
 type TransactionAccount struct {
-	ID                           int         `json:"id"`
-	Name                         string      `json:"name"`
+	ID        int    `json:"id"`
+	AccountID int    `json:"account_id"`
+	Name      string `json:"name"`
+	// Number is read-only. It is returned by the API but is not accepted by
+	// PUT /transaction_accounts/{id}.
 	Number                       string      `json:"number"`
+	LatestFeedName               string      `json:"latest_feed_name"`
+	Offline                      bool        `json:"offline"`
+	IsNetWorth                   bool        `json:"is_net_worth"`
+	IncludeInNetWorth            bool        `json:"include_in_net_worth"`
 	CurrentBalance               float64     `json:"current_balance"`
 	CurrentBalanceDate           string      `json:"current_balance_date"`
 	CurrentBalanceInBaseCurrency float64     `json:"current_balance_in_base_currency"`
 	CurrentBalanceExchangeRate   float64     `json:"current_balance_exchange_rate"`
+	CurrentBalanceSource         string      `json:"current_balance_source"`
+	DataFeedsBalanceType         string      `json:"data_feeds_balance_type"`
+	DataFeedsAccountID           string      `json:"data_feeds_account_id"`
+	DataFeedsConnectionID        string      `json:"data_feeds_connection_id"`
 	SafeBalance                  float64     `json:"safe_balance"`
 	SafeBalanceInBaseCurrency    float64     `json:"safe_balance_in_base_currency"`
+	HasSafeBalanceAdjustment     bool        `json:"has_safe_balance_adjustment"`
 	StartingBalance              float64     `json:"starting_balance"`
 	StartingBalanceDate          string      `json:"starting_balance_date"`
 	CreatedAt                    string      `json:"created_at"`
@@ -73,6 +88,7 @@ type Account struct {
 	CurrencyCode                 string               `json:"currency_code"`
 	Type                         AccountType          `json:"type"`
 	IsNetWorth                   bool                 `json:"is_net_worth"`
+	IncludeInNetWorth            bool                 `json:"include_in_net_worth"`
 	PrimaryTransactionAccount    TransactionAccount   `json:"primary_transaction_account"`
 	PrimaryScenario              Scenario             `json:"primary_scenario"`
 	TransactionAccounts          []TransactionAccount `json:"transaction_accounts"`
@@ -85,6 +101,7 @@ type Account struct {
 	CurrentBalanceExchangeRate   float64              `json:"current_balance_exchange_rate"`
 	SafeBalance                  float64              `json:"safe_balance"`
 	SafeBalanceInBaseCurrency    float64              `json:"safe_balance_in_base_currency"`
+	HasSafeBalanceAdjustment     bool                 `json:"has_safe_balance_adjustment"`
 }
 
 func (c *Client) ListAccounts(userID int) ([]*Account, error) {
@@ -310,4 +327,58 @@ func (c *Client) UpdateAccount(accountID int, title string, currencyCode string,
 	}
 
 	return &account, nil
+}
+
+// GetAccount retrieves a single account by its ID.
+func (c *Client) GetAccount(accountID int) (*Account, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/accounts/%d", accountID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	var account Account
+	err = c.doAndDecode(req, &account)
+	if err != nil {
+		return nil, err
+	}
+
+	return &account, nil
+}
+
+// DeleteAccount deletes an account and all of its transaction accounts.
+func (c *Client) DeleteAccount(accountID int) error {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/accounts/%d", accountID)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	return c.doAndDecode(req, nil)
+}
+
+// GetTransactionAccount retrieves a single transaction account by its ID.
+func (c *Client) GetTransactionAccount(transactionAccountID int) (*TransactionAccount, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d", transactionAccountID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	var transactionAccount TransactionAccount
+	err = c.doAndDecode(req, &transactionAccount)
+	if err != nil {
+		return nil, err
+	}
+
+	return &transactionAccount, nil
 }

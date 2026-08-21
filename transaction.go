@@ -174,32 +174,7 @@ func (c *Client) ListTransactions(accountID int, opts ...ListTransactionsOption)
 		return nil, err
 	}
 
-	q := req.URL.Query()
-	if options.startDate != "" {
-		q.Add("start_date", options.startDate)
-	}
-	if options.endDate != "" {
-		q.Add("end_date", options.endDate)
-	}
-	if options.updatedSince != "" {
-		q.Add("updated_since", options.updatedSince)
-	}
-	if options.uncategorised > 0 {
-		q.Add("uncategorised", fmt.Sprintf("%d", options.uncategorised))
-	}
-	if options.transactionType != "" {
-		q.Add("type", options.transactionType)
-	}
-	if options.needsReview > 0 {
-		q.Add("needs_review", fmt.Sprintf("%d", options.needsReview))
-	}
-	if options.search != "" {
-		q.Add("search", options.search)
-	}
-	if options.page > 0 {
-		q.Add("page", fmt.Sprintf("%d", options.page))
-	}
-	req.URL.RawQuery = q.Encode()
+	applyListTransactionsOptions(req, options)
 
 	var transactions []*DetailedTransaction
 	if err := c.doAndDecode(req, &transactions); err != nil {
@@ -299,4 +274,121 @@ func (c *Client) SearchTransactionsByChequeNumber(accountID int, transactionDate
 	}
 
 	return matchingTransactions, nil
+}
+
+func applyListTransactionsOptions(req *http.Request, options *listTransactionsOptions) {
+	q := req.URL.Query()
+	if options.startDate != "" {
+		q.Add("start_date", options.startDate)
+	}
+	if options.endDate != "" {
+		q.Add("end_date", options.endDate)
+	}
+	if options.updatedSince != "" {
+		q.Add("updated_since", options.updatedSince)
+	}
+	if options.uncategorised > 0 {
+		q.Add("uncategorised", fmt.Sprintf("%d", options.uncategorised))
+	}
+	if options.transactionType != "" {
+		q.Add("type", options.transactionType)
+	}
+	if options.needsReview > 0 {
+		q.Add("needs_review", fmt.Sprintf("%d", options.needsReview))
+	}
+	if options.search != "" {
+		q.Add("search", options.search)
+	}
+	if options.page > 0 {
+		q.Add("page", fmt.Sprintf("%d", options.page))
+	}
+	req.URL.RawQuery = q.Encode()
+}
+
+func (c *Client) listTransactions(url string, opts ...ListTransactionsOption) ([]*DetailedTransaction, error) {
+	options := &listTransactionsOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+	applyListTransactionsOptions(req, options)
+
+	var transactions []*DetailedTransaction
+	if err := c.doAndDecode(req, &transactions); err != nil {
+		return nil, err
+	}
+
+	return transactions, nil
+}
+
+// ListTransactionsInUser retrieves a list of transactions across all of the
+// user's accounts.
+func (c *Client) ListTransactionsInUser(userID int, opts ...ListTransactionsOption) ([]*DetailedTransaction, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/users/%d/transactions", userID)
+	return c.listTransactions(url, opts...)
+}
+
+// ListTransactionsInAccount retrieves a list of transactions in an account.
+func (c *Client) ListTransactionsInAccount(accountID int, opts ...ListTransactionsOption) ([]*DetailedTransaction, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/accounts/%d/transactions", accountID)
+	return c.listTransactions(url, opts...)
+}
+
+// ListTransactionsInTransactionAccount retrieves a list of transactions in a
+// transaction account. It is the same as ListTransactions, but named to make
+// the resource it operates on unambiguous.
+func (c *Client) ListTransactionsInTransactionAccount(transactionAccountID int, opts ...ListTransactionsOption) ([]*DetailedTransaction, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transaction_accounts/%d/transactions", transactionAccountID)
+	return c.listTransactions(url, opts...)
+}
+
+// ListTransactionsInCategories retrieves a list of transactions in one or more
+// categories.
+func (c *Client) ListTransactionsInCategories(categoryIDs []int, opts ...ListTransactionsOption) ([]*DetailedTransaction, error) {
+	ids := make([]string, 0, len(categoryIDs))
+	for _, id := range categoryIDs {
+		ids = append(ids, fmt.Sprintf("%d", id))
+	}
+
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/categories/%s/transactions", strings.Join(ids, ","))
+	return c.listTransactions(url, opts...)
+}
+
+// GetTransaction retrieves a single transaction by its ID.
+func (c *Client) GetTransaction(transactionID int64) (*DetailedTransaction, error) {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transactions/%d", transactionID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	var transaction DetailedTransaction
+	if err := c.doAndDecode(req, &transaction); err != nil {
+		return nil, err
+	}
+
+	return &transaction, nil
+}
+
+// DeleteTransaction deletes a transaction by its ID.
+func (c *Client) DeleteTransaction(transactionID int64) error {
+	url := fmt.Sprintf("https://api.pocketsmith.com/v2/transactions/%d", transactionID)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	return c.doAndDecode(req, nil)
 }

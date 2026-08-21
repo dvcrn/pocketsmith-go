@@ -18,17 +18,48 @@ type AttachmentVariants struct {
 	LargeURL string `json:"large_url"`
 }
 
+// AttachableCategory is the abbreviated category returned inside an
+// attachment's attachables list.
+type AttachableCategory struct {
+	ID     int    `json:"id"`
+	Title  string `json:"title"`
+	Colour string `json:"colour"`
+	Icon   string `json:"icon"`
+}
+
+// Attachable is a record an attachment is assigned to.
+type Attachable struct {
+	Type                 string              `json:"type"`
+	ID                   int64               `json:"id"`
+	Date                 string              `json:"date"`
+	Payee                string              `json:"payee"`
+	Amount               float64             `json:"amount"`
+	AmountInBaseCurrency float64             `json:"amount_in_base_currency"`
+	Category             *AttachableCategory `json:"category"`
+}
+
 type Attachment struct {
-	ID              int64              `json:"id"`
-	Title           string             `json:"title"`
-	FileName        string             `json:"file_name"`
-	Type            string             `json:"type"`
-	ContentType     string             `json:"content_type"`
-	ContentTypeMeta ContentTypeMeta    `json:"content_type_meta"`
-	OriginalURL     string             `json:"original_url"`
-	Variants        AttachmentVariants `json:"variants"`
-	CreatedAt       string             `json:"created_at"`
-	UpdatedAt       string             `json:"updated_at"`
+	ID              int64                `json:"id"`
+	Title           string               `json:"title"`
+	FileName        string               `json:"file_name"`
+	FileSize        int64                `json:"file_size"`
+	Type            string               `json:"type"`
+	ContentType     string               `json:"content_type"`
+	ContentTypeMeta ContentTypeMeta      `json:"content_type_meta"`
+	OriginalURL     string               `json:"original_url"`
+	Variants        AttachmentVariants   `json:"variants"`
+	UploadSource    string               `json:"upload_source"`
+	Description     string               `json:"description"`
+	Starred         bool                 `json:"starred"`
+	Important       bool                 `json:"important"`
+	Assigned        bool                 `json:"assigned"`
+	AttachedTo      *DetailedTransaction `json:"attached_to"`
+	AttachedType    string               `json:"attached_type"`
+	AttachedDate    string               `json:"attached_date"`
+	Attachables     []*Attachable        `json:"attachables"`
+	TagNames        []string             `json:"tag_names"`
+	CreatedAt       string               `json:"created_at"`
+	UpdatedAt       string               `json:"updated_at"`
 }
 
 // ListAttachments retrieves all attachments for a given user
